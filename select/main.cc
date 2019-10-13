@@ -7,6 +7,7 @@
 #include <iostream>
 #include <random>
 #include <vector>
+#include <x86intrin.h>
 
 using namespace std;
 using namespace std::chrono;
@@ -174,7 +175,9 @@ const uint64_t MASK_33 = 0x3333333333333333ULL;
 const uint64_t MASK_55 = 0x5555555555555555ULL;
 const uint64_t MASK_80 = 0x8080808080808080ULL;
 
-uint64_t select_bit(uint64_t i, uint64_t bit_id, uint64_t unit) {
+inline uint64_t select_bit(uint64_t i, uint64_t bit_id, uint64_t unit) {
+  // return bit_id + __builtin_ctzll(_pdep_u64(1UL << i, unit));
+
   uint64_t counts;
   counts = unit - ((unit >> 1) & MASK_55);
   counts = (counts & MASK_33) + ((counts >> 2) & MASK_33);
@@ -182,7 +185,7 @@ uint64_t select_bit(uint64_t i, uint64_t bit_id, uint64_t unit) {
   counts *= MASK_01;
 
   const uint64_t x = (counts | MASK_80) - ((i + 1) * MASK_01);
-  const int skip = ::__builtin_ctzll((x & MASK_80) >> 7);
+  const int skip = __builtin_ctzll((x & MASK_80) >> 7);
 
   bit_id += static_cast<uint64_t>(skip);
   unit >>= skip;
