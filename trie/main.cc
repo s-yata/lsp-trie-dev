@@ -19,8 +19,9 @@ struct Trie {
   string last_key;
   uint64_t n_keys;
   uint64_t n_nodes;
+  uint64_t n_pat_nodes;
 
-  Trie() : levels(2), last_key(), n_keys(0), n_nodes(1) {
+  Trie() : levels(2), last_key(), n_keys(0), n_nodes(1), n_pat_nodes(1) {
     levels[0].louds.push_back(true);
     levels[0].louds.push_back(false);
     levels[1].louds.push_back(false);
@@ -41,10 +42,17 @@ struct Trie {
     uint64_t i = 0;
     for ( ; i < key.length(); ++i) {
       uint8_t byte = key[i];
-      if (levels[i + 1].labels.empty() ||
-          (byte != levels[i + 1].labels.back()) ||
-          (i == last_key.length())) {
+      if ((i == last_key.length()) ||
+          (byte != levels[i + 1].labels.back())) {
         assert(!levels[i + 1].louds.back());
+        if (i != 0 && !levels[i].outs.back() &&
+          levels[i + 1].louds.size() >= 2 &&
+          levels[i + 1].louds[levels[i + 1].louds.size() - 2] &&
+          (levels[i + 1].louds.size() == 2 ||
+          !levels[i + 1].louds[levels[i + 1].louds.size() - 3])) {
+          // New branch, not root and not out.
+          ++n_pat_nodes;
+        }
         levels[i + 1].louds.back() = true;
         levels[i + 1].louds.push_back(false);
         levels[i + 1].outs.push_back(false);
@@ -64,6 +72,7 @@ struct Trie {
     levels[key.length()].outs.back() = true;
     last_key = key;
     ++n_keys;
+    ++n_pat_nodes;
   }
 };
 
@@ -76,6 +85,7 @@ int main() {
   }
   cout << "#keys = " << trie.n_keys << endl;
   cout << "#nodes = " << trie.n_nodes << endl;
+  cout << "#pat_nodes = " << trie.n_pat_nodes << endl;
   cout << "#levels = " << trie.levels.size() << endl;
   uint64_t louds_size = 0;
   uint64_t outs_size = 0;
