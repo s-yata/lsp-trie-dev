@@ -18,8 +18,9 @@ struct Trie {
   vector<Level> levels;
   string last_key;
   uint64_t n_keys;
+  uint64_t n_nodes;
 
-  Trie() : levels(2), last_key(), n_keys(0) {
+  Trie() : levels(2), last_key(), n_keys(0), n_nodes(1) {
     levels[0].louds.push_back(true);
     levels[0].louds.push_back(false);
     levels[1].louds.push_back(false);
@@ -29,6 +30,11 @@ struct Trie {
 
   void add(const std::string &key) {
     assert(n_keys == 0 || key > last_key);
+    if (key.empty()) {
+      levels[0].outs.back() = true;
+      ++n_keys;
+      return;
+    }
     if (key.length() + 1 >= levels.size()) {
       levels.resize(key.length() + 2);
     }
@@ -36,11 +42,14 @@ struct Trie {
     for ( ; i < key.length(); ++i) {
       uint8_t byte = key[i];
       if (levels[i + 1].labels.empty() ||
-          (byte != levels[i + 1].labels.back())) {
+          (byte != levels[i + 1].labels.back()) ||
+          (i == last_key.length())) {
+        assert(!levels[i + 1].louds.back());
         levels[i + 1].louds.back() = true;
         levels[i + 1].louds.push_back(false);
         levels[i + 1].outs.push_back(false);
         levels[i + 1].labels.push_back(key[i]);
+        ++n_nodes;
         break;
       }
     }
@@ -49,6 +58,7 @@ struct Trie {
       levels[i + 1].louds.push_back(false);
       levels[i + 1].outs.push_back(false);
       levels[i + 1].labels.push_back(key[i]);
+      ++n_nodes;
     }
     levels[key.length() + 1].louds.push_back(false);
     levels[key.length()].outs.back() = true;
@@ -65,19 +75,26 @@ int main() {
     trie.add(line);
   }
   cout << "#keys = " << trie.n_keys << endl;
+  cout << "#nodes = " << trie.n_nodes << endl;
   cout << "#levels = " << trie.levels.size() << endl;
-  uint64_t n_bits = 0;
-  for (uint64_t i = 0; i < 10 && i < trie.levels.size(); ++i) {
-    cout << i << ": ";
+  uint64_t louds_size = 0;
+  uint64_t outs_size = 0;
+  uint64_t labels_size = 0;
+  for (uint64_t i = 0; i < trie.levels.size(); ++i) {
     const Level &level = trie.levels[i];
-    cout << "louds = " << level.louds.size();
-    cout << ", outs = " << level.outs.size();
-    cout << ", labels = " << level.labels.size();
-    n_bits += level.louds.size();
-    n_bits += level.outs.size();
-    n_bits += level.labels.size() * 8;
-    cout << endl;
+    louds_size += level.louds.size();
+    outs_size += level.outs.size();
+    labels_size += level.labels.size();
+    // cout << i << ": ";
+    // cout << "louds = " << level.louds.size();
+    // cout << ", outs = " << level.outs.size();
+    // cout << ", labels = " << level.labels.size();
+    // cout << endl;
   }
-  cout << "#bits = " << n_bits << ", #bytes = " << (n_bits / 8) << endl;
+  cout << "louds = " << louds_size << " bits" << endl;
+  cout << "outs = " << outs_size << " bits" << endl;
+  cout << "labels = " << labels_size  << " bytes" << endl;
+  // uint64_t n_bits = louds_size + outs_size + labels_size;
+  // cout << "#bits = " << n_bits << ", #bytes = " << (n_bits / 8) << endl;
   return 0;
 }
