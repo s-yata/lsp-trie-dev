@@ -1,2 +1,2 @@
 ALL:
-	g++ -O2 -Wall -Wextra *.cc -o trie
+	g++ -O2 -Wall -Wextra -march=native *.cc -o trie
