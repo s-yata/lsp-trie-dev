@@ -319,6 +319,7 @@ struct Trie {
     uint64_t offset = 0;
     for (uint64_t i = 0; i < levels.size(); ++i) {
       levels[i].louds.build();
+      levels[i].outs.build();
       levels[i].offset = offset;
       offset += levels[i].outs.n_ones();
     }
@@ -353,9 +354,9 @@ struct Trie {
     }
     const Level &level = levels[query.length()];
     if (!level.outs.get(rank)) {
-      return false;
+      return -1;
     }
-    return level.offset + rank;
+    return level.offset + level.outs.rank(rank);
   }
 };
 
