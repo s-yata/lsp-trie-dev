@@ -351,6 +351,17 @@ struct Patricia {
   BitVector tails_bits;
   vector<uint8_t> tails_bytes;
 
+  uint64_t size() const {
+    uint64_t size = 0;
+    size += louds.size();
+    size += outs.size();
+    size += links.size();
+    size += labels.size();
+    size += tails_bits.size();
+    size += tails_bytes.size();
+    return size;
+  }
+
   explicit Patricia(Trie &trie)
     : louds(), outs(), links(), labels(), tails_bits(), tails_bytes() {
     louds.reserve((trie.n_pat_nodes * 2) - 1);
@@ -406,33 +417,138 @@ struct Patricia {
       louds.add(0);
       queue.pop();
     } while (!queue.empty());
+
+    louds.build();
+    outs.build();
+    links.build();
+    tails_bits.add(1);
+    tails_bits.build();
+  }
+
+  int64_t lookup(const string &query) const {
+    // cout << "query = " << query << endl;
+    uint64_t node_pos = 0;
+    uint64_t node_id = 0;
+    for (uint64_t i = 0; i < query.length(); ++i) {
+      uint8_t byte = query[i];
+      node_pos = louds.select0(node_id) + 1;
+      node_id = node_pos - node_id - 1;
+      // cout << "id = " << node_id << ", pos = " << node_pos << endl;
+      for ( ; ; ) {
+        if (!louds.get(node_pos)) {
+          return -1;
+        }
+        if (labels[node_id] == byte) {
+          if (links.get(node_id)) {
+            uint64_t tail_pos = tails_bits.select1(links.rank(node_id));
+            for (++i; i < query.length(); ++i) {
+              // cout << "tail_pos = " << tail_pos << endl;
+              if (tails_bytes[tail_pos] != (uint8_t)query[i]) {
+                return -1;
+              }
+              ++tail_pos;
+              if (tails_bits.get(tail_pos)) {
+                break;
+              }
+            }
+          }
+          break;
+        }
+        ++node_pos;
+        ++node_id;
+      }
+      // cout << i << ": node_id = " << node_id << ", rank = " << rank << endl;
+    }
+    if (!outs.get(node_id)) {
+      return -1;
+    }
+    return outs.rank(node_id);
   }
 };
 
+// int main() {
+//   uint64_t total_len = 0;
+//   ios_base::sync_with_stdio(false);
+//   Trie trie;
+//   string line;
+//   while (getline(cin, line)) {
+//     trie.add(line);
+//     total_len += line.length();
+//   }
+//   trie.build();
+//   cout << "total_len = " << total_len <<endl;
+//   cout << "#keys = " << trie.n_keys << endl;
+//   cout << "#nodes = " << trie.n_nodes << endl;
+//   cout << "#pat_nodes = " << trie.n_pat_nodes << endl;
+//   cout << "#levels = " << trie.levels.size() << endl;
+//   cout << "size = " << trie.size() <<endl;
+
+//   Patricia patricia(trie);
+//   cout << "Patricia" << endl;
+//   cout << " louds.size = " << patricia.louds.n_bits() << " (" << patricia.louds.size() << ')' << endl;
+//   cout << " outs.size = " << patricia.outs.n_bits() << " (" << patricia.outs.size() << ')' << endl;
+//   cout << " links.size = " << patricia.links.n_bits() << " (" << patricia.links.size() << ')' << endl;
+//   cout << " labels.size = " << patricia.labels.size() << endl;
+//   cout << " tails_bits.size = " << patricia.tails_bits.n_bits() << " (" << patricia.tails_bits.size() << ')' << endl;
+//   cout << " tails_bytes.size = " << patricia.tails_bytes.size() << endl;
+//   return 0;
+// }
+
 int main() {
-  uint64_t total_len = 0;
   ios_base::sync_with_stdio(false);
-  Trie trie;
+  vector<string> keys;
   string line;
   while (getline(cin, line)) {
-    trie.add(line);
-    total_len += line.length();
+    keys.push_back(line);
+  }
+
+  cout << "Trie:" << endl;
+  high_resolution_clock::time_point begin = high_resolution_clock::now();
+  Trie trie;
+  for (uint64_t i = 0; i < keys.size(); ++i) {
+    trie.add(keys[i]);
   }
   trie.build();
-  cout << "total_len = " << total_len <<endl;
-  cout << "#keys = " << trie.n_keys << endl;
-  cout << "#nodes = " << trie.n_nodes << endl;
-  cout << "#pat_nodes = " << trie.n_pat_nodes << endl;
-  cout << "#levels = " << trie.levels.size() << endl;
-  cout << "size = " << trie.size() <<endl;
+  high_resolution_clock::time_point end = high_resolution_clock::now();
+  double elapsed = (double)duration_cast<nanoseconds>(end - begin).count();
+  printf("build = %7.3f ns\n", elapsed / keys.size());
+
+  cout << " #keys = " << trie.n_keys << endl;
+  cout << " #nodes = " << trie.n_nodes << endl;
+  cout << " #pat_nodes = " << trie.n_pat_nodes << endl;
+  cout << " #levels = " << trie.levels.size() << endl;
+  uint64_t louds_size = 0;
+  uint64_t outs_size = 0;
+  uint64_t labels_size = 0;
+  for (uint64_t i = 0; i < trie.levels.size(); ++i) {
+    const Level &level = trie.levels[i];
+    louds_size += level.louds.size();
+    outs_size += level.outs.size();
+    labels_size += level.labels.size();
+  }
+  cout << " size = " << trie.size() << " bytes" << endl;
 
   Patricia patricia(trie);
-  cout << "Patricia" << endl;
-  cout << " louds.size = " << patricia.louds.n_bits() << " (" << patricia.louds.size() << ')' << endl;
-  cout << " outs.size = " << patricia.outs.n_bits() << " (" << patricia.outs.size() << ')' << endl;
-  cout << " links.size = " << patricia.links.n_bits() << " (" << patricia.links.size() << ')' << endl;
-  cout << " labels.size = " << patricia.labels.size() << endl;
-  cout << " tails_bits.size = " << patricia.tails_bits.n_bits() << " (" << patricia.tails_bits.size() << ')' << endl;
-  cout << " tails_bytes.size = " << patricia.tails_bytes.size() << endl;
+  cout << "Patricia:" << endl;
+  cout << " size = " << patricia.size() << " bytes" << endl;
+
+  begin = high_resolution_clock::now();
+  for (uint64_t i = 0; i < keys.size(); ++i) {
+    assert(patricia.lookup(keys[i]) != -1);
+  }
+  end = high_resolution_clock::now();
+  elapsed = (double)duration_cast<nanoseconds>(end - begin).count();
+  printf(" seq. lookup = %7.3f ns\n", elapsed / keys.size());
+
+  random_shuffle(keys.begin(), keys.end());
+
+  begin = high_resolution_clock::now();
+  for (uint64_t i = 0; i < keys.size(); ++i) {
+    assert(patricia.lookup(keys[i]) != -1);
+  }
+  end = high_resolution_clock::now();
+  elapsed = (double)duration_cast<nanoseconds>(end - begin).count();
+  printf(" rnd. lookup = %7.3f ns\n", elapsed / keys.size());
+
   return 0;
 }
