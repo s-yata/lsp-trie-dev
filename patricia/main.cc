@@ -368,7 +368,7 @@ struct Patricia {
     outs.reserve(trie.n_pat_nodes);
     links.reserve(trie.n_pat_nodes);
     labels.reserve(trie.n_pat_nodes);
-    tails_bits.reserve(trie.n_nodes - trie.n_pat_nodes);
+    tails_bits.reserve(trie.n_nodes - trie.n_pat_nodes + 1);
     tails_bytes.reserve(trie.n_nodes - trie.n_pat_nodes);
 
     louds.add(1);
@@ -511,7 +511,7 @@ int main() {
   trie.build();
   high_resolution_clock::time_point end = high_resolution_clock::now();
   double elapsed = (double)duration_cast<nanoseconds>(end - begin).count();
-  printf("build = %7.3f ns\n", elapsed / keys.size());
+  printf(" build = %7.3f ns\n", elapsed / keys.size());
 
   cout << " #keys = " << trie.n_keys << endl;
   cout << " #nodes = " << trie.n_nodes << endl;
@@ -528,8 +528,12 @@ int main() {
   }
   cout << " size = " << trie.size() << " bytes" << endl;
 
-  Patricia patricia(trie);
   cout << "Patricia:" << endl;
+  begin = high_resolution_clock::now();
+  Patricia patricia(trie);
+  end = high_resolution_clock::now();
+  elapsed = (double)duration_cast<nanoseconds>(end - begin).count();
+  printf(" build = %7.3f ns\n", elapsed / keys.size());
   cout << " size = " << patricia.size() << " bytes" << endl;
 
   begin = high_resolution_clock::now();
