@@ -22,6 +22,11 @@ using namespace std::chrono;
 //   virtual uint64_t size() const = 0;
 // };
 
+#ifdef __BMI2__
+inline uint64_t select_bit(uint64_t i, uint64_t bit_id, uint64_t unit) {
+  return bit_id + __builtin_ctzll(_pdep_u64(1UL << i, unit));
+}
+#else  // __BMI2__
 const uint8_t SELECT_TABLE[8][256] = {
   {
     7, 0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0,
@@ -176,8 +181,6 @@ const uint64_t MASK_55 = 0x5555555555555555ULL;
 const uint64_t MASK_80 = 0x8080808080808080ULL;
 
 inline uint64_t select_bit(uint64_t i, uint64_t bit_id, uint64_t unit) {
-  // return bit_id + __builtin_ctzll(_pdep_u64(1UL << i, unit));
-
   uint64_t counts;
   counts = unit - ((unit >> 1) & MASK_55);
   counts = (counts & MASK_33) + ((counts >> 2) & MASK_33);
@@ -193,6 +196,7 @@ inline uint64_t select_bit(uint64_t i, uint64_t bit_id, uint64_t unit) {
 
   return bit_id + SELECT_TABLE[i][unit & 0xFF];
 }
+#endif  // __BMI2__
 
 class BitVectorBase {
  public:
